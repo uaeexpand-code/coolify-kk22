@@ -1,0 +1,5 @@
+{
+  "name": "Supabase Expense Tracker",
+  "description": "A modern, minimal expense tracker with real-time updates, built with React, Tailwind CSS, and Supabase. It features an Apple-style clean design, smooth animations, and is fully responsive.",
+  "requestFramePermissions": []
+}
