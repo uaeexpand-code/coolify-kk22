@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../services/supabase';
 import { Expense } from '../types';
 import ExpenseItem from './ExpenseItem';
 import { View } from '../App';
-import { PlusIcon, LoaderIcon } from './icons/Icons';
+import { PlusIcon, LoaderIcon, SettingsIcon } from './icons/Icons';
+import { useSupabase } from '../contexts/SupabaseContext';
 
 interface DashboardProps {
   setView: (view: View) => void;
@@ -12,11 +12,13 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ setView, onEdit }) => {
+  const { client: supabase } = useSupabase();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchExpenses = useCallback(async () => {
+    if (!supabase) return;
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -31,9 +33,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, onEdit }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) return;
+
     fetchExpenses();
 
     const channel = supabase
@@ -42,8 +46,6 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, onEdit }) => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'expenses' },
         (payload) => {
-          console.log('Change received!', payload);
-          // Just refetch all for simplicity, could be optimized to handle specific events
           fetchExpenses(); 
         }
       )
@@ -52,13 +54,13 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, onEdit }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase, fetchExpenses]);
 
   const totalSpent = expenses.reduce((acc, expense) => acc + (expense.is_paid ? Number(expense.amount) : 0), 0);
   const upcomingBills = expenses.reduce((acc, expense) => acc + (!expense.is_paid ? Number(expense.amount) : 0), 0);
 
   const markAsPaid = async (id: string) => {
+    if (!supabase) return;
     const originalExpenses = [...expenses];
     const updatedExpenses = expenses.map(exp => 
       exp.id === id ? { ...exp, is_paid: true } : exp
@@ -72,11 +74,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, onEdit }) => {
 
     if (error) {
       setError('Failed to update expense. Please try again.');
-      setExpenses(originalExpenses); // Revert on error
+      setExpenses(originalExpenses);
     }
   };
   
   const deleteExpense = async (id: string) => {
+    if (!supabase) return;
     const originalExpenses = [...expenses];
     setExpenses(expenses.filter(exp => exp.id !== id));
 
@@ -84,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, onEdit }) => {
 
     if (error) {
         setError('Failed to delete expense. Please try again.');
-        setExpenses(originalExpenses); // Revert on error
+        setExpenses(originalExpenses);
     }
   };
 
@@ -96,13 +99,22 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, onEdit }) => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Expenses</h1>
           <p className="text-gray-500 dark:text-gray-400">Welcome back to your dashboard.</p>
         </div>
-        <button
-          onClick={() => setView('add')}
-          className="hidden sm:flex items-center gap-2 bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-primary-hover transition-colors duration-200"
-        >
-          <PlusIcon />
-          Add Expense
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setView('add')}
+            className="hidden sm:flex items-center gap-2 bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-primary-hover transition-colors duration-200"
+          >
+            <PlusIcon />
+            Add Expense
+          </button>
+           <button
+            onClick={() => setView('settings')}
+            className="p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+            aria-label="Settings"
+          >
+            <SettingsIcon />
+          </button>
+        </div>
       </header>
 
       {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p>{error}</p></div>}

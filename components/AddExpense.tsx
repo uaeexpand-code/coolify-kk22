@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../services/supabase';
 import { View } from '../App';
 import { Categories, ExpenseCategory } from '../types';
 import { BackIcon, LoaderIcon } from './icons/Icons';
+import { useSupabase } from '../contexts/SupabaseContext';
 
 interface AddExpenseProps {
   setView: (view: View) => void;
@@ -11,6 +11,7 @@ interface AddExpenseProps {
 }
 
 const AddExpense: React.FC<AddExpenseProps> = ({ setView, expenseId }) => {
+  const { client: supabase } = useSupabase();
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [bank, setBank] = useState('');
@@ -21,7 +22,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ setView, expenseId }) => {
   const isEditing = !!expenseId;
 
   const fetchExpense = useCallback(async () => {
-    if (!expenseId) return;
+    if (!expenseId || !supabase) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('expenses')
@@ -38,18 +39,21 @@ const AddExpense: React.FC<AddExpenseProps> = ({ setView, expenseId }) => {
       setCategory(data.category);
     }
     setLoading(false);
-  }, [expenseId]);
+  }, [expenseId, supabase]);
 
   useEffect(() => {
     if (isEditing) {
       fetchExpense();
     }
-     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, fetchExpense]);
   
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supabase) {
+      setError('Supabase client is not initialized.');
+      return;
+    }
     if (!name || !amount || !bank || !category) {
       setError('Please fill out all fields.');
       return;
